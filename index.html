@@ -20,27 +20,30 @@
     .grid{display:grid;gap:12px}
     .row{display:flex;gap:10px;align-items:center;justify-content:space-between;border:1px dashed #24417a;border-radius:12px;padding:10px 12px}
     .key{color:#98b0dc;font-size:.95rem}.val{font-weight:700}
-    .good{color:var(--ok)} .bad{color:var(--err)}
     .footer{opacity:.7;font-size:.9rem;margin-top:14px}
     code{background:#0b1329;border:1px solid #20325f;border-radius:8px;padding:2px 6px}
+    .ltr{direction:ltr; unicode-bidi:plaintext;}
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card">
       <h1>sanad friend — تسجيل الدخول</h1>
-      <p class="muted">تسجيل آمن عبر Amazon Cognito (Authorization Code + PKCE). بعد نجاح الدخول، بنحفظ بياناتك داخل <code>sessionStorage</code> في نفس الصفحة.</p>
+      <p class="muted">
+        تسجيل عبر Amazon Cognito (Authorization Code + PKCE). بعد النجاح، بنحفظ <b>userId / name / birth / phone number / email</b>
+        كل واحدة في مفتاح مستقل داخل <code>sessionStorage</code>.
+      </p>
 
       <div id="signed-out"><button id="btnSignIn" class="primary">تسجيل الدخول</button></div>
 
       <div id="signed-in" style="display:none">
         <div class="grid" id="claims"></div>
         <div style="display:flex;gap:10px;margin-top:14px">
-          <button id="btnCopy">نسخ بيانات الجلسة</button>
+          <button id="btnCopy">نسخ القيم الخمسة</button>
           <button id="btnSignOut">تسجيل الخروج</button>
-          <button id="btnClearLocal" class="link" title="مسح التخزين المؤقت فقط">مسح SessionStorage فقط</button>
+          <button id="btnClearLocal" class="link" title="مسح SessionStorage فقط">مسح SessionStorage فقط</button>
         </div>
-        <p class="footer">المفاتيح: <code>SANADF_USER</code> و <code>SANADF_TOKENS</code></p>
+        <p class="footer">مفاتيح التخزين: <code>userId</code>, <code>name</code>, <code>birth</code>, <code>phone number</code>, <code>email</code></p>
       </div>
 
       <p id="msg" class="footer"></p>
@@ -48,61 +51,89 @@
   </div>
 
   <script>
-    // ===== إعداداتك =====
+    // ========= إعداداتك =========
     const CONFIG = Object.freeze({
       PROGRAM_NAME: "sanad friend",
       CLIENT_ID: "1ckgnpptbiq3aopekr9kt54aoh",
-      COGNITO_DOMAIN: "https://us-east-1fth1loy0b.auth.us-east-1.amazoncognito.com", // ← دومين Hosted UI بتاعك
+      COGNITO_DOMAIN: "https://us-east-1fth1loy0b.auth.us-east-1.amazoncognito.com",
       REDIRECT_URI: "https://sanadfriend.github.io/sanadfriend/",
-      SCOPES: ["openid","email","phone","profile"],
+      SCOPES: ["openid","email","phone","profile"], // ضروري لـ name/birthdate
     });
 
-    const K = Object.freeze({
-      PKCE_VERIFIER: "SF_PKCE_VERIFIER",
-      OAUTH_STATE: "SF_OAUTH_STATE",
-      TOKENS: "SANADF_TOKENS",
-      USER: "SANADF_USER",
-    });
+    // ========= مفاتيح مؤقتة لرحلة PKCE/state (لا تُخزن بيانات المستخدم الأخرى) =========
+    const TMP = Object.freeze({ PKCE_VERIFIER:"SF_PKCE_VERIFIER", OAUTH_STATE:"SF_OAUTH_STATE" });
 
-    // ===== Utils =====
+    // ========= Helpers =========
     const $ = s => document.querySelector(s);
-    const b64url = (buf) => {
-      let str = typeof buf === "string" ? buf : String.fromCharCode(...new Uint8Array(buf));
-      return btoa(str).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
-    };
-    const b64urlToUint8 = (s) => {
-      s = s.replace(/-/g, "+").replace(/_/g, "/");
-      const pad = s.length % 4 ? 4 - (s.length % 4) : 0;
-      const b64 = s + "=".repeat(pad);
-      const raw = atob(b64); const out = new Uint8Array(raw.length);
-      for (let i=0;i<raw.length;i++) out[i]=raw.charCodeAt(i);
-      return out;
-    };
-    const sha256 = async (str) => crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
-    const randomString = (len=64) => { const a=new Uint8Array(len); crypto.getRandomValues(a); return b64url(a); };
-    const createPKCE = async () => { const verifier=randomString(64); const challenge=b64url(await sha256(verifier)); return {verifier,challenge}; };
-    const decodeJwt = (jwt) => { const [,p] = String(jwt).split("."); try{ return JSON.parse(new TextDecoder().decode(b64urlToUint8(p))); }catch{ return {}; } };
-    const message = (t, ok=true) => { const el=$("#msg"); el.textContent=t||""; el.style.color= ok ? "#9fe6b8" : "#ffb4b4"; };
+    const msg = (t, ok=true)=>{ const el=$("#msg"); el.textContent=t||""; el.style.color=ok?"#9fe6b8":"#ffb4b4"; };
+    const b64url = (buf)=>{ let str=typeof buf==="string"?buf:String.fromCharCode(...new Uint8Array(buf));
+      return btoa(str).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); };
+    const b64urlToUint8 = (s)=>{ s=s.replace(/-/g,"+").replace(/_/g,"/"); const pad=s.length%4?4-(s.length%4):0;
+      const b64=s+"=".repeat(pad); const raw=atob(b64); const out=new Uint8Array(raw.length);
+      for(let i=0;i<raw.length;i++) out[i]=raw.charCodeAt(i); return out; };
+    const sha256 = (str)=>crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+    const randStr=(n=64)=>{ const a=new Uint8Array(n); crypto.getRandomValues(a); return b64url(a); };
+    const createPKCE = async()=>{ const v=randStr(64); const c=b64url(await sha256(v)); return {verifier:v, challenge:c}; };
+    const decodeJwt = (jwt)=>{ const [,p]=String(jwt).split("."); try{ return JSON.parse(new TextDecoder().decode(b64urlToUint8(p))); }catch{ return {}; } };
 
-    // تخزين مؤقت resilient (PKCE/state)
+    // تخزين مؤقت resilient لمتغيرات الرحلة فقط
     const tempStore = {
       set:(k,v)=>{ try{sessionStorage.setItem(k,JSON.stringify(v));}catch{} try{localStorage.setItem(k,JSON.stringify(v));}catch{} },
       get:(k)=>{ let v=null; try{v=sessionStorage.getItem(k);}catch{} if(v==null){ try{v=localStorage.getItem(k);}catch{} }
                  try{return v!=null?JSON.parse(v):null;}catch{return null;} },
       del:(k)=>{ try{sessionStorage.removeItem(k);}catch{} try{localStorage.removeItem(k);}catch{} },
     };
-    const ss = {
-      set:(k,v)=>sessionStorage.setItem(k,JSON.stringify(v)),
-      get:(k)=>{ try{return JSON.parse(sessionStorage.getItem(k));}catch{return null;} },
-      del:(...ks)=>ks.forEach(k=>sessionStorage.removeItem(k)),
-    };
 
-    // ===== Auth Flow =====
-    function authorizeRedirect() {
-      createPKCE().then(({verifier, challenge}) => {
-        const state = randomString(32);
-        tempStore.set(K.PKCE_VERIFIER, verifier);
-        tempStore.set(K.OAUTH_STATE, state);
+    // ========= حفظ القيم الخمسة فقط =========
+    function persistUserFields({userId, name, birth, phone, email}) {
+      sessionStorage.setItem("userId", userId || "");
+      sessionStorage.setItem("name", name || "");
+      sessionStorage.setItem("birth", birth || "");
+      sessionStorage.setItem("phone number", phone || ""); // الاسم كما طُلب
+      sessionStorage.setItem("email", email || "");
+    }
+    function clearUserFields() {
+      ["userId","name","birth","phone number","email"].forEach(k=>sessionStorage.removeItem(k));
+    }
+
+    // ========= UI =========
+    function renderFromSession() {
+      const data = {
+        userId: sessionStorage.getItem("userId"),
+        name: sessionStorage.getItem("name"),
+        birth: sessionStorage.getItem("birth"),
+        phone: sessionStorage.getItem("phone number"),
+        email: sessionStorage.getItem("email"),
+      };
+      const signedIn = !!data.userId;
+      $("#signed-out").style.display = signedIn ? "none" : "";
+      $("#signed-in").style.display  = signedIn ? "" : "none";
+      if (!signedIn) return;
+
+      const rows = [
+        ["program", CONFIG.PROGRAM_NAME],
+        ["userId", data.userId],
+        ["name", data.name],
+        ["birth", data.birth],
+        ["email", data.email],
+        ["phone number", data.phone],
+      ];
+      const grid = $("#claims"); grid.innerHTML = "";
+      for (const [k,v] of rows) {
+        const row = document.createElement("div"); row.className="row";
+        const key = Object.assign(document.createElement("div"), {className:"key", textContent:k});
+        const val = Object.assign(document.createElement("div"), {className:"val", textContent: v || "—"});
+        if (k==="email" || k==="phone number") val.classList.add("ltr");
+        row.append(key,val); grid.append(row);
+      }
+    }
+
+    // ========= Auth Flow =========
+    function startLogin() {
+      createPKCE().then(({verifier, challenge})=>{
+        const state = randStr(32);
+        tempStore.set(TMP.PKCE_VERIFIER, verifier);
+        tempStore.set(TMP.OAUTH_STATE, state);
 
         const url = new URL(CONFIG.COGNITO_DOMAIN + "/oauth2/authorize");
         url.searchParams.set("response_type","code");
@@ -113,32 +144,28 @@
         url.searchParams.set("code_challenge", challenge);
         url.searchParams.set("state", state);
         location.assign(url.toString());
-      }).catch(()=> message("تعذر بدء تسجيل الدخول (PKCE).", false));
+      }).catch(()=>msg("تعذر بدء تسجيل الدخول (PKCE).", false));
     }
 
-    async function exchangeCodeForTokens(code) {
-      const verifier = tempStore.get(K.PKCE_VERIFIER);
-      const expectedState = tempStore.get(K.OAUTH_STATE);
+    async function handleCallback(code) {
+      const verifier = tempStore.get(TMP.PKCE_VERIFIER);
+      const expectedState = tempStore.get(TMP.OAUTH_STATE);
       const gotState = new URL(location.href).searchParams.get("state");
-
-      // Compat mode: اسمح لو مفيش state (زي login/continue). لو موجود ومختلف → خطأ.
-      if (expectedState && gotState && gotState !== expectedState) throw new Error("STATE_MISMATCH");
+      if (expectedState && gotState && expectedState !== gotState) throw new Error("STATE_MISMATCH");
 
       const body = new URLSearchParams({
-        grant_type: "authorization_code",
-        client_id: CONFIG.CLIENT_ID,
-        code,
-        redirect_uri: CONFIG.REDIRECT_URI
+        grant_type:"authorization_code",
+        client_id:CONFIG.CLIENT_ID,
+        code, redirect_uri:CONFIG.REDIRECT_URI
       });
       if (verifier) body.set("code_verifier", verifier); // يستخدم PKCE لو متاح
 
       const resp = await fetch(CONFIG.COGNITO_DOMAIN + "/oauth2/token", {
-        method: "POST", headers: {"Content-Type":"application/x-www-form-urlencoded"}, body
+        method:"POST", headers:{ "Content-Type":"application/x-www-form-urlencoded" }, body
       });
       if (!resp.ok) throw new Error("TOKEN_EXCHANGE_FAILED");
       const tokens = await resp.json();
-      ss.set(K.TOKENS, tokens);
-      tempStore.del(K.PKCE_VERIFIER); tempStore.del(K.OAUTH_STATE);
+      tempStore.del(TMP.PKCE_VERIFIER); tempStore.del(TMP.OAUTH_STATE);
 
       const idClaims = decodeJwt(tokens.id_token || "");
       let info = {};
@@ -151,56 +178,27 @@
 
       const full = Object.assign({}, idClaims, info);
       const user = {
-        program: CONFIG.PROGRAM_NAME,
-        userId: full.sub || idClaims.sub,
-        username: full["cognito:username"] || idClaims["cognito:username"],
-        email: full.email, email_verified: full.email_verified,
-        phone: full.phone_number, phone_verified: full.phone_number_verified,
-        name: full.name || [full.given_name, full.family_name].filter(Boolean).join(" ") || "(بدون اسم)",
-        picture: full.picture, exp: idClaims.exp, iat: idClaims.iat, auth_time: idClaims.auth_time
+        userId: full.sub || idClaims.sub || "",
+        name: full.name || [full.given_name, full.family_name].filter(Boolean).join(" ") || "",
+        birth: full.birthdate || idClaims.birthdate || "",
+        phone: full.phone_number || "",
+        email: full.email || "",
       };
-      ss.set(K.USER, user);
-      return user;
+      persistUserFields(user);
     }
 
-    // ===== UI =====
-    const render = (user) => {
-      const signedIn = !!user;
-      $("#signed-out").style.display = signedIn ? "none" : "";
-      $("#signed-in").style.display  = signedIn ? "" : "none";
-      if (!signedIn) return;
-
-      const rows = [
-        ["program","sanad friend"],
-        ["userId (sub)", user.userId],
-        ["username", user.username],
-        ["name", user.name],
-        ["email", user.email],
-        ["phone", user.phone],
-        ["email_verified", user.email_verified ? "true":"false"],
-        ["phone_verified", user.phone_verified ? "true":"false"],
-        ["token_exp(unix)", user.exp],
-      ];
-      const grid = $("#claims"); grid.innerHTML = "";
-      for (const [k,v] of rows) {
-        const row = document.createElement("div"); row.className="row";
-        const key = Object.assign(document.createElement("div"), {className:"key", textContent:k});
-        const val = Object.assign(document.createElement("div"), {className:"val", textContent: v ?? "—"});
-        if (k.endsWith("_verified")) val.classList.add(v==="true"?"good":"bad");
-        row.append(key,val); grid.append(row);
-      }
-    };
-
+    // ========= Init =========
     async function init() {
-      $("#btnSignIn").onclick = authorizeRedirect;
-      $("#btnCopy").onclick   = async () => {
-        const data = { user: ss.get(K.USER), tokens: ss.get(K.TOKENS) };
-        await navigator.clipboard.writeText(JSON.stringify(data,null,2));
-        message("تم نسخ بيانات الجلسة.", true);
+      $("#btnSignIn").onclick = startLogin;
+      $("#btnClearLocal").onclick = ()=>{ clearUserFields(); renderFromSession(); msg("تم مسح SessionStorage.", true); };
+      $("#btnCopy").onclick = async ()=>{
+        const keys = ["userId","name","birth","phone number","email"];
+        const out = Object.fromEntries(keys.map(k=>[k, sessionStorage.getItem(k) || ""]));
+        await navigator.clipboard.writeText(JSON.stringify(out,null,2));
+        msg("تم نسخ القيم الخمسة.", true);
       };
-      $("#btnClearLocal").onclick = () => { ss.del(K.USER,K.TOKENS); render(null); message("تم مسح sessionStorage.", true); };
-      $("#btnSignOut").onclick  = () => {
-        ss.del(K.USER,K.TOKENS); render(null); message("تم مسح الجلسة محليًا.", true);
+      $("#btnSignOut").onclick = ()=>{
+        clearUserFields(); renderFromSession(); msg("تم مسح الجلسة محليًا.", true);
         try {
           const url = new URL(CONFIG.COGNITO_DOMAIN + "/logout");
           url.searchParams.set("client_id", CONFIG.CLIENT_ID);
@@ -213,16 +211,15 @@
       const code = url.searchParams.get("code");
       if (code) {
         try {
-          const user = await exchangeCodeForTokens(code);
+          await handleCallback(code);
           url.searchParams.delete("code"); url.searchParams.delete("state");
           history.replaceState(null,"",url.toString());
-          render(user); message("تم تسجيل الدخول بنجاح."); return;
+          msg("تم تسجيل الدخول وحفظ القيم الخمسة.");
         } catch(e) {
-          console.error(e);
-          message(e.message, false);
+          console.error(e); msg(e.message || "خطأ أثناء إتمام تسجيل الدخول.", false);
         }
       }
-      render(ss.get(K.USER));
+      renderFromSession();
     }
     init();
   </script>
