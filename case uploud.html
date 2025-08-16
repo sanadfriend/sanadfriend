@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>تقديم حالة دعم</title>
+<style>
+  :root{
+    --bg:#f7fafc;--surface:#ffffff;--ink:#0f172a;--muted:#5d6a86;
+    --primary:#2563eb;--primary-ink:#fff;--stroke:#e5e7eb;--ok:#0ea5e9;--danger:#ef4444;
+    --ring: rgba(37,99,235,.25); --shadow: 0 10px 30px rgba(0,0,0,.08);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:"Cairo","Tajawal",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.7}
+  .container{max-width:980px;margin:32px auto;padding:16px}
+  .card{background:var(--surface);border:1px solid var(--stroke);border-radius:16px;padding:20px;box-shadow:var(--shadow)}
+  h1{margin:0 0 16px;font-size:28px}
+  .row{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}
+  .col-12{grid-column:span 12}
+  .col-6{grid-column:span 6}
+  .field{display:flex;flex-direction:column;gap:6px}
+  label{font-weight:700}
+  input,select,textarea{border:1px solid var(--stroke);border-radius:12px;padding:12px 14px;background:#fff;font-size:15px}
+  textarea{min-height:120px;resize:vertical}
+  input:focus,select:focus,textarea:focus{outline:none;box-shadow:0 0 0 4px var(--ring);border-color:#c7d2fe}
+  .muted{color:var(--muted);font-size:13px}
+  .files{border:1px dashed #d1d5db;border-radius:12px;padding:12px;background:#fff}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 16px;border:none;border-radius:12px;background:var(--primary);color:var(--primary-ink);font-weight:700;cursor:pointer}
+  .btn:disabled{opacity:.6;cursor:not-allowed}
+  .btn.light{background:#f3f4f6;color:#111827}
+  .danger{color:var(--danger)}
+  .ok{color:var(--ok)}
+  .banner{border:1px solid #fecaca;background:#fff1f2;color:#7f1d1d;padding:12px 14px;border-radius:12px;margin-bottom:14px}
+  .chip{display:inline-block;padding:2px 8px;border-radius:999px;background:#eef2ff;border:1px solid #c7d2fe;font-size:12px}
+  .hr{height:1px;background:var(--stroke);margin:10px 0 16px}
+  .stack{display:flex;flex-direction:column;gap:10px}
+  .flex{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .timeline{background:#fff;border:1px solid var(--stroke);border-radius:12px;padding:12px}
+  .progress{height:8px;background:#eef2ff;border-radius:999px;overflow:hidden}
+  .progress>span{display:block;height:100%;width:0%;background:var(--primary);transition:width .25s}
+  .small{font-size:12px}
+  .success{border:1px solid #86efac;background:#f0fdf4;color:#14532d;border-radius:12px;padding:10px 12px}
+  .warn{border:1px solid #fcd34d;background:#fffbeb;color:#713f12;border-radius:12px;padding:10px 12px}
+  code{direction:ltr}
+  @media (max-width:860px){ .col-6{grid-column:span 12} }
+</style>
+</head>
+<body>
+  <div class="container">
+    <div id="loginBanner" class="banner" style="display:none">لا يمكن الإرسال: <b>userId</b> غير موجود في <code>sessionStorage</code>. فضلاً سجّل الدخول أولاً.</div>
+
+    <div class="card">
+      <h1>تقديم حالة دعم</h1>
+      <div class="muted">املأ البيانات بدقة. سيتم إنشاء ملف نصّي وتخزين المرفقات في السحابة.</div>
+
+      <!-- الفئات المترابطة -->
+      <div class="row">
+        <div class="col-6">
+          <div class="field">
+            <label>الفئة الرئيسية</label>
+            <select id="level1" required></select>
+          </div>
+        </div>
+        <div class="col-6">
+          <div class="field">
+            <label>الفرع</label>
+            <select id="level2" required></select>
+          </div>
+        </div>
+        <div class="col-12">
+          <div class="field">
+            <label>العنصر</label>
+            <select id="level3" required></select>
+            <div class="muted">سيتم بناء <span class="chip">category_path</span> تلقائيًا: <code id="catPathPreview"></code></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hr"></div>
+
+      <!-- بيانات الحالة -->
+      <div class="row">
+        <div class="col-12">
+          <div class="field">
+            <label>وصف الحالة *</label>
+            <textarea id="desc" required placeholder="اكتب وصفًا واضحًا ومختصرًا"></textarea>
+          </div>
+        </div>
+
+        <div class="col-6">
+          <div class="field">
+            <label>المبلغ المطلوب (جنيه) *</label>
+            <input id="amountWanted" type="number" min="0" step="1" required placeholder="45000" />
+          </div>
+        </div>
+        <div class="col-6">
+          <div class="field">
+            <label>المبلغ الذي تم جمعه (اختياري)</label>
+            <input id="amountRaised" type="number" min="0" step="1" placeholder="12000" />
+          </div>
+        </div>
+
+        <div class="col-6">
+          <div class="field">
+            <label>اسم المستشفى (إن وجد)</label>
+            <input id="hospital" type="text" placeholder="مثال: مستشفى القصر العيني" />
+          </div>
+        </div>
+        <div class="col-6">
+          <div class="field">
+            <label>عنوان الحالة *</label>
+            <input id="address" type="text" required placeholder="القاهرة، مصر" />
+          </div>
+        </div>
+
+        <div class="col-6">
+          <div class="field">
+            <label>بيانات الدفع *</label>
+            <input id="payment" type="text" required placeholder="Instapay / حساب بنكي / فودافون كاش" />
+          </div>
+        </div>
+        <div class="col-6">
+          <div class="field">
+            <label>المهنة *</label>
+            <input id="job" type="text" required placeholder="عامل / موظف / ..." />
+          </div>
+        </div>
+
+        <div class="col-6">
+          <div class="field">
+            <label>مكان العمل *</label>
+            <input id="workplace" type="text" required placeholder="اسم الجهة أو وصف المكان" />
+          </div>
+        </div>
+        <div class="col-6">
+          <div class="field">
+            <label>متوسط الدخل (شهريًا) *</label>
+            <input id="income" type="number" min="0" step="1" required placeholder="4000" />
+          </div>
+        </div>
+      </div>
+
+      <!-- تاريخ الحالة -->
+      <div class="stack">
+        <label><b>تاريخ الحالة</b> (أضف سطورًا: سنة + وصف)</label>
+        <div id="timelineList" class="timeline"></div>
+        <div class="flex">
+          <input id="tlYear" type="number" min="1900" max="2100" placeholder="سنة" />
+          <input id="tlDesc" type="text" placeholder="وصف الحدث" style="flex:1" />
+          <button type="button" class="btn light" id="addTl">إضافة سطر</button>
+          <button type="button" class="btn light" id="clearTl">مسح</button>
+        </div>
+      </div>
+
+      <div class="hr"></div>
+
+      <!-- المرفقات -->
+      <div class="row">
+        <div class="col-12">
+          <div class="field">
+            <label>فيديو توضيحي (اختياري)</label>
+            <input id="video" type="file" accept="video/*" />
+            <div class="muted small">لو الحجم أكبر من 5MB هنرفعه مباشرةً إلى S3 عبر Presigned URL تلقائيًا.</div>
+          </div>
+        </div>
+        <div class="col-12">
+          <div class="field files">
+            <label>صور بطاقات (المقدّم والحالة) — يمكنك اختيار أكثر من ملف</label>
+            <input id="idImages" type="file" accept="image/*" multiple />
+          </div>
+        </div>
+        <div class="col-12">
+          <div class="field files">
+            <label>مستندات طبية (روشتة/تقرير/صور أو PDF) — يمكنك اختيار أكثر من ملف</label>
+            <input id="medDocs" type="file" accept="image/*,application/pdf" multiple />
+          </div>
+        </div>
+      </div>
+
+      <div class="hr"></div>
+
+      <!-- الإقرار والتوقيع -->
+      <div class="stack">
+        <div class="field">
+          <label>الاسم للتوقيع *</label>
+          <input id="sigName" type="text" required placeholder="اكتب اسمك الكامل كما ستوقّع به" />
+        </div>
+        <div id="declarationBox" class="warn">
+          <b>نص الإقرار:</b>
+          <div id="declarationText" class="small"></div>
+        </div>
+        <div class="flex">
+          <input id="agree" type="checkbox" />
+          <label for="agree">أوافق على الإقرار أعلاه وأتحمّل المسؤولية القانونية عن صحة البيانات.</label>
+        </div>
+      </div>
+
+      <div class="hr"></div>
+
+      <!-- الإجراءات -->
+      <div class="flex">
+        <button id="submitBtn" class="btn">إرسال الحالة</button>
+        <div id="status" class="muted"></div>
+      </div>
+
+      <div id="progressWrap" style="display:none;margin-top:10px">
+        <div class="progress"><span id="progressBar"></span></div>
+        <div class="small muted" id="progressLabel">جاري الرفع…</div>
+      </div>
+
+      <div id="resultBox" style="display:none;margin-top:12px" class="success"></div>
+    </div>
+  </div>
+
+<script>
+/* ===================== شجرة التصنيفات ===================== */
+const TREE = {
+  "الحالات الطبية": {
+    "أمراض مزمنة": ["فشل كلوي","أورام سرطانية","أمراض القلب والشرايين","أمراض الجهاز التنفسي"],
+    "عمليات جراحية عاجلة": ["عمليات قلب مفتوح","عمليات عظام وكسور حرجة","عمليات زرع أعضاء"],
+    "أمراض الأطفال": ["أمراض وراثية نادرة","سوء تغذية حاد","تشوهات خلقية تحتاج تدخل جراحي"],
+    "إصابات وحوادث": ["حوادث سير","حروق شديدة","إصابات العمل"]
+  },
+  "الحالات الاجتماعية": {
+    "أسر بلا عائل": ["أرامل بأطفال","مطلقات مع أبناء دون دعم","أيتام في حاجة لمعيشة"],
+    "تشرد/انعدام مأوى": ["أشخاص بلا مسكن ثابت","أسر مهددة بالطرد من المنزل"],
+    "ظروف اقتصادية قاسية": ["فقدان العمل بدون دخل","تراكم ديون أساسية (إيجار، كهرباء، ماء)"],
+    "كبار السن بلا رعاية": ["مسنين بلا دخل أو دعم","مرضى مقعدين يحتاجون رعاية منزلية"]
+  },
+  "الدعم التعليمي": {
+    "طلاب غير قادرين على سداد المصاريف": ["مصاريف مدرسية","مصاريف جامعية"],
+    "أدوات تعليمية": ["كتب ومستلزمات دراسية","أجهزة لابتوب/تابلت للتعليم"],
+    "دورات تدريبية للتوظيف": ["حِرَف يدوية","مهارات تقنية"]
+  },
+  "مشروعات صغيرة": {
+    "مشاريع إنتاجية للأسر الفقيرة": ["معدات خياطة","أدوات مطبخ للعمل المنزلي"],
+    "مشاريع للشباب العاطل": ["أدوات ورش (نجارة/حدادة/ميكانيكا)","كشك أو محل صغير"]
+  },
+  "الطوارئ والكوارث": {
+    "كوارث طبيعية": ["سيول","حرائق"],
+    "ظروف قهرية عاجلة": ["فقدان المنزل فجأة","حادث جماعي"]
+  }
+};
+
+/* ===================== عناصر الواجهة ===================== */
+const level1 = document.getElementById('level1');
+const level2 = document.getElementById('level2');
+const level3 = document.getElementById('level3');
+const catPathPreview = document.getElementById('catPathPreview');
+
+const tlYear = document.getElementById('tlYear');
+const tlDesc = document.getElementById('tlDesc');
+const timelineList = document.getElementById('timelineList');
+const addTl = document.getElementById('addTl');
+const clearTl = document.getElementById('clearTl');
+
+const desc = document.getElementById('desc');
+const amountWanted = document.getElementById('amountWanted');
+const amountRaised = document.getElementById('amountRaised');
+const hospital = document.getElementById('hospital');
+const address = document.getElementById('address');
+const payment = document.getElementById('payment');
+const job = document.getElementById('job');
+const workplace = document.getElementById('workplace');
+const income = document.getElementById('income');
+
+const video = document.getElementById('video');
+const idImages = document.getElementById('idImages');
+const medDocs = document.getElementById('medDocs');
+
+const sigName = document.getElementById('sigName');
+const agree = document.getElementById('agree');
+const declarationText = document.getElementById('declarationText');
+
+const submitBtn = document.getElementById('submitBtn');
+const statusEl = document.getElementById('status');
+const resultBox = document.getElementById('resultBox');
+const loginBanner = document.getElementById('loginBanner');
+
+const progressWrap = document.getElementById('progressWrap');
+const progressBar = document.getElementById('progressBar');
+const progressLabel = document.getElementById('progressLabel');
+
+/* ===================== إعداد القوائم ===================== */
+function fillL1(){
+  level1.innerHTML = `<option value="">اختر الفئة الرئيسية</option>` + Object.keys(TREE).map(k=>`<option>${k}</option>`).join('');
+}
+function fillL2(){
+  const k1 = level1.value; level2.innerHTML = `<option value="">اختر الفرع</option>`;
+  level3.innerHTML = `<option value="">اختر العنصر</option>`;
+  if(!k1) return;
+  Object.keys(TREE[k1]).forEach(k2=>{
+    const opt = document.createElement('option'); opt.textContent=k2; level2.appendChild(opt);
+  });
+}
+function fillL3(){
+  const k1 = level1.value, k2 = level2.value; level3.innerHTML = `<option value="">اختر العنصر</option>`;
+  if(!k1 || !k2) return;
+  TREE[k1][k2].forEach(v=>{
+    const opt = document.createElement('option'); opt.textContent=v; level3.appendChild(opt);
+  });
+}
+function updateCatPath(){
+  const k1 = level1.value, k2 = level2.value, k3 = level3.value;
+  const p = [k1,k2,k3].filter(Boolean).join('/');
+  catPathPreview.textContent = p || '—';
+}
+level1.addEventListener('change', ()=>{ fillL2(); fillL3(); updateCatPath(); });
+level2.addEventListener('change', ()=>{ fillL3(); updateCatPath(); });
+level3.addEventListener('change', updateCatPath);
+
+/* ===================== الإقرار ===================== */
+function buildDeclaration(name){
+  if(!name) return '—';
+  return `أقر أنا/ ${name} بأنني المسؤول قانونيًا عن صحة وكمال المعلومات والمستندات المقدمة بخصوص هذه الحالة، `
+    + `وأوافق على استخدامها للتحقق والتوثيق. كما أعلم أنه في حال ثبوت تقديم بيانات غير صحيحة أو مخالفة، `
+    + `فإني أتحمل كامل المساءلة القانونية وفق القوانين المنظمة. هذا إقرار مني وتم بإرادتي الحرة.`;
+}
+sigName.addEventListener('input', ()=> { declarationText.textContent = buildDeclaration(sigName.value.trim()); });
+
+/* ===================== جدول زمني ===================== */
+const timeline = [];
+function renderTimeline(){
+  if(!timeline.length){ timelineList.innerHTML = `<div class="muted small">لا توجد بيانات بعد.</div>`; return; }
+  timelineList.innerHTML = timeline.map((t,i)=>(
+    `<div class="flex small">
+      <span class="chip">${t.year}</span>
+      <span>${t.desc}</span>
+      <button type="button" class="btn light small" onclick="removeTl(${i})">حذف</button>
+    </div>`
+  )).join('');
+}
+function removeTl(i){ timeline.splice(i,1); renderTimeline(); }
+addTl.addEventListener('click', ()=>{
+  const y = tlYear.value.trim(), d = tlDesc.value.trim();
+  if(!y || !d){ alert('أدخل سنة ووصفًا.'); return; }
+  timeline.push({year: Number(y), desc: d});
+  tlYear.value=''; tlDesc.value=''; renderTimeline();
+});
+clearTl.addEventListener('click', ()=>{ timeline.length=0; renderTimeline(); });
+
+/* ===================== أدوات الملفات ===================== */
+const BASE64_INLINE_LIMIT = 5 * 1024 * 1024; // 5MB
+
+function readFileAsBase64(file){
+  return new Promise((resolve,reject)=>{
+    const fr = new FileReader();
+    fr.onload = ()=> {
+      const s = String(fr.result);
+      const base64 = s.includes(',') ? s.split(',',1)[1] : s;
+      resolve(base64);
+    };
+    fr.onerror = ()=> reject(fr.error);
+    fr.readAsDataURL(file);
+  });
+}
+
+function makeObjForUpload(file, base64OrNull){
+  const obj = { filename: file.name, content_type: file.type || 'application/octet-stream' };
+  if(base64OrNull) obj.content_base64 = base64OrNull;
+  return obj;
+}
+
+/* ===================== رفع Presigned ===================== */
+async function uploadPresigned(post, file){
+  const fd = new FormData();
+  for (const [k, v] of Object.entries(post.fields)) fd.append(k, v);
+  fd.append('file', file);
+  const res = await fetch(post.url, { method: 'POST', body: fd, mode: 'cors' });
+  const text = await res.text().catch(()=> '');
+  if (!res.ok) throw new Error(`S3 upload failed ${res.status}: ${text.slice(0,200)}`);
+  return true;
+}
+
+/* === تجهيز الملفات حسب النوع (بدون الاعتماد على الاسم) === */
+function selectedByType(){
+  return {
+    video:       video.files && video.files[0] ? [video.files[0]] : [],
+    id_image:    idImages.files ? [...idImages.files] : [],
+    medical_doc: medDocs.files ? [...medDocs.files] : []
+  };
+}
+
+/* ===================== إرسال ===================== */
+const API_URL = 'https://xq2jyy0kc1.execute-api.us-east-1.amazonaws.com/prod/case-uploud';
+
+function setProgress(pct, label){
+  progressWrap.style.display='block';
+  progressBar.style.width = `${Math.max(0, Math.min(100, pct))}%`;
+  if(label) progressLabel.textContent = label;
+}
+
+async function handleSubmit(){
+  statusEl.textContent = ''; resultBox.style.display='none';
+  if(!sessionStorage.getItem('userId')){
+    alert('لا يمكن الإرسال دون userId في sessionStorage.'); return;
+  }
+  if(!agree.checked){ alert('يجب الموافقة على الإقرار.'); return; }
+  if(!level1.value || !level2.value || !level3.value){ alert('اختر الفئة/الفرع/العنصر.'); return; }
+
+  submitBtn.disabled = true; setProgress(5, 'تحضير البيانات…');
+
+  const category_path = [level1.value, level2.value, level3.value].join('/');
+  const case_data = {
+    "وصف_الحالة": desc.value.trim(),
+    "المبلغ_المطلوب": String(amountWanted.value || ''),
+    "اسم_المستشفى": hospital.value.trim(),
+    "تاريخ_الحالة": timeline.map(t=>({ "سنة": t.year, "وصف": t.desc })),
+    "المبلغ_المجموع": String(amountRaised.value || '0'),
+    "عنوان_الحالة": address.value.trim(),
+    "بيانات_الدفع": payment.value.trim(),
+    "المهنة": job.value.trim(),
+    "مكان_العمل": workplace.value.trim(),
+    "متوسط_الدخل": String(income.value || ''),
+    "إمضاء_رسمي": buildDeclaration(sigName.value.trim())
+  };
+
+  const user_id = sessionStorage.getItem('userId');
+
+  // الملفات الصغيرة Base64 – الكبيرة Placeholder (ترفع لاحقًا بـ presigned)
+  let videoObj = null;
+  if(video.files[0]){
+    const f = video.files[0];
+    if(f.size <= BASE64_INLINE_LIMIT){
+      setProgress(12, 'تحويل الفيديو إلى Base64…');
+      const b64 = await readFileAsBase64(f);
+      videoObj = makeObjForUpload(f, b64);
+    } else {
+      videoObj = makeObjForUpload(f, null);
+    }
+  }
+
+  async function prepMany(fileList){
+    const arr = [];
+    for(const f of fileList){
+      if(f.size <= BASE64_INLINE_LIMIT){
+        const b64 = await readFileAsBase64(f);
+        arr.push(makeObjForUpload(f, b64));
+      } else {
+        arr.push(makeObjForUpload(f, null));
+      }
+    }
+    return arr;
+  }
+
+  setProgress(20, 'تحضير الصور والمستندات…');
+  const id_images = await prepMany(idImages.files || []);
+  const medical_docs = await prepMany(medDocs.files || []);
+
+  const payload = {
+    action: "create_case",
+    category_path,
+    user_id,
+    upload_mode: "base64",
+    case_data,
+  };
+  if(videoObj) payload.video = videoObj;
+  if(id_images.length) payload.id_images = id_images;
+  if(medical_docs.length) payload.medical_docs = medical_docs;
+
+  // إرسال للـ API
+  setProgress(35, 'إرسال الطلب…');
+  let apiRes;
+  try{
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    apiRes = await res.json();
+    if(!res.ok){
+      throw new Error(apiRes?.error || `HTTP ${res.status}`);
+    }
+  }catch(err){
+    console.error(err);
+    statusEl.innerHTML = `<span class="danger">فشل الإرسال: ${err.message}</span>`;
+    submitBtn.disabled = false; return;
+  }
+
+  // رفع الملفات الكبيرة مباشرة إلى S3 حسب presigned (مطابقة بالنوع + الترتيب)
+  const presigned = apiRes.presigned || [];
+  if(presigned.length){
+    setProgress(55, 'جارٍ رفع الملفات الكبيرة إلى S3…');
+    const buckets = selectedByType();
+    const cursors = { video:0, id_image:0, medical_doc:0 };
+    const errors = [];
+    let done = 0;
+
+    for (const p of presigned){
+      const arr = buckets[p.type] || [];
+      const idx = cursors[p.type] || 0;
+      const file = arr[idx];
+      if (!file){
+        console.warn('No file to upload for presigned item', p);
+        errors.push(`لا يوجد ملف مقابل: ${p.final_filename || p.key}`);
+        continue;
+      }
+      cursors[p.type] = idx + 1;
+
+      try{
+        await uploadPresigned(p.post, file);
+        done++;
+        setProgress(55 + Math.floor((done/presigned.length)*40), `رفع ${done}/${presigned.length}…`);
+      }catch(e){
+        console.error('Upload failed', p.key, e);
+        errors.push(`فشل رفع (${p.final_filename || file.name}): ${e.message}`);
+      }
+    }
+
+    if (errors.length){
+      statusEl.innerHTML = `<span class="danger">تم إنشاء الحالة لكن تعذّر رفع بعض الملفات:<br>${errors.join('<br>')}</span>`;
+      submitBtn.disabled = false;
+      return;
+    }
+  }
+
+  setProgress(100, 'تم الحفظ والرفع بنجاح.');
+  resultBox.style.display='block';
+  const exp = apiRes.expected_keys || [];
+  resultBox.innerHTML = `✅ تم إنشاء الحالة.<br>
+    <div class="small">المجلد: <code>${apiRes.case_folder || '—'}</code></div>
+    ${exp.length ? `<div class="small">سيتم حفظ المرفقات بأسماء نهائية:
+      <ul>${exp.map(e=>`<li><code>${e.key}</code></li>`).join('')}</ul></div>` : ''}`;
+
+  statusEl.innerHTML = `<span class="ok">تم.</span>`;
+  submitBtn.disabled = false;
+}
+
+/* ===================== تهيئة ===================== */
+function init(){
+  if(!sessionStorage.getItem('userId')){
+    loginBanner.style.display = 'block';
+    submitBtn.disabled = true;
+  }
+  fillL1(); fillL2(); fillL3(); updateCatPath();
+  declarationText.textContent = buildDeclaration(sigName.value.trim());
+  renderTimeline();
+  submitBtn.addEventListener('click', (e)=>{ e.preventDefault(); handleSubmit(); });
+}
+init();
+</script>
+</body>
+</html>
