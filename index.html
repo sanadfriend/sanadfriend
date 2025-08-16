@@ -4,10 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>sanad friend — تسجيل الدخول</title>
-  <!-- فاف آيكون لتصفير 404 -->
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%232563eb'/%3E%3Ctext x='32' y='40' text-anchor='middle' font-size='28' fill='white' font-family='Arial'%3ESF%3C/text%3E%3C/svg%3E">
   <style>
-    :root{--bg:#0b1224;--card:#101a34;--muted:#8fa3c7;--txt:#e9eef9;--accent:#4cc9f0;--ok:#22c55e;--err:#ef4444}
+    :root{--bg:#0b1224;--card:#101a34;--muted:#8fa3c7;--txt:#e9eef9;--ok:#22c55e;--err:#ef4444}
     *{box-sizing:border-box}
     body{margin:0;background:linear-gradient(180deg,#0b1224,#0e1630 40%,#0b1224);color:var(--txt);
       font-family:"Cairo","Tajawal",system-ui,Segoe UI,Roboto,Arial,sans-serif;line-height:1.7}
@@ -49,56 +48,56 @@
   </div>
 
   <script>
-    // ===== 1) إعداداتك (حدث الدومين) ==========================================
+    // ===== إعداداتك =====
     const CONFIG = Object.freeze({
       PROGRAM_NAME: "sanad friend",
-      REGION: "us-east-1",
-      USER_POOL_ID: "us-east-1_FtH1LOY0B",
       CLIENT_ID: "1ckgnpptbiq3aopekr9kt54aoh",
-      COGNITO_DOMAIN: "https://us-east-1fth1loy0b.auth.us-east-1.amazoncognito.com/login?client_id=1ckgnpptbiq3aopekr9kt54aoh&redirect_uri=https://sanadfriend.github.io/sanadfriend/&response_type=code&scope=email+openid+phone", // ← غيّره
+      COGNITO_DOMAIN: "https://us-east-1fth1loy0b.auth.us-east-1.amazoncognito.com", // ← دومين Hosted UI بتاعك
       REDIRECT_URI: "https://sanadfriend.github.io/sanadfriend/",
       SCOPES: ["openid","email","phone","profile"],
     });
 
-    // مفاتيح التخزين
     const K = Object.freeze({
       PKCE_VERIFIER: "SF_PKCE_VERIFIER",
       OAUTH_STATE: "SF_OAUTH_STATE",
-      TOKENS: "SANADF_TOKENS",     // sessionStorage
-      USER: "SANADF_USER",         // sessionStorage
+      TOKENS: "SANADF_TOKENS",
+      USER: "SANADF_USER",
     });
 
-    // ===== 2) Utilities ========================================================
+    // ===== Utils =====
     const $ = s => document.querySelector(s);
     const b64url = (buf) => {
       let str = typeof buf === "string" ? buf : String.fromCharCode(...new Uint8Array(buf));
       return btoa(str).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
     };
     const b64urlToUint8 = (s) => {
-      s = s.replace(/-/g, "+").replace(/_/g, "/"); const pad = s.length % 4 ? 4 - (s.length % 4) : 0;
-      const b64 = s + "=".repeat(pad); const raw = atob(b64); const out = new Uint8Array(raw.length);
-      for (let i=0;i<raw.length;i++) out[i]=raw.charCodeAt(i); return out;
+      s = s.replace(/-/g, "+").replace(/_/g, "/");
+      const pad = s.length % 4 ? 4 - (s.length % 4) : 0;
+      const b64 = s + "=".repeat(pad);
+      const raw = atob(b64); const out = new Uint8Array(raw.length);
+      for (let i=0;i<raw.length;i++) out[i]=raw.charCodeAt(i);
+      return out;
     };
     const sha256 = async (str) => crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
     const randomString = (len=64) => { const a=new Uint8Array(len); crypto.getRandomValues(a); return b64url(a); };
-    const createPKCE = async () => { const verifier = randomString(64); const challenge = b64url(await sha256(verifier)); return {verifier,challenge}; };
+    const createPKCE = async () => { const verifier=randomString(64); const challenge=b64url(await sha256(verifier)); return {verifier,challenge}; };
     const decodeJwt = (jwt) => { const [,p] = String(jwt).split("."); try{ return JSON.parse(new TextDecoder().decode(b64urlToUint8(p))); }catch{ return {}; } };
     const message = (t, ok=true) => { const el=$("#msg"); el.textContent=t||""; el.style.color= ok ? "#9fe6b8" : "#ffb4b4"; };
 
-    // تخزين مؤقت resilient (PKCE/state) → يكتب في sessionStorage وlocalStorage
+    // تخزين مؤقت resilient (PKCE/state)
     const tempStore = {
-      set: (k,v) => { try{sessionStorage.setItem(k,JSON.stringify(v));}catch{} try{localStorage.setItem(k,JSON.stringify(v));}catch{} },
-      get: (k)   => { let v=null; try{v=sessionStorage.getItem(k);}catch{} if(v==null){ try{v=localStorage.getItem(k);}catch{} }
-                      try{return v!=null?JSON.parse(v):null;}catch{return null;} },
-      del: (k)   => { try{sessionStorage.removeItem(k);}catch{} try{localStorage.removeItem(k);}catch{} },
+      set:(k,v)=>{ try{sessionStorage.setItem(k,JSON.stringify(v));}catch{} try{localStorage.setItem(k,JSON.stringify(v));}catch{} },
+      get:(k)=>{ let v=null; try{v=sessionStorage.getItem(k);}catch{} if(v==null){ try{v=localStorage.getItem(k);}catch{} }
+                 try{return v!=null?JSON.parse(v):null;}catch{return null;} },
+      del:(k)=>{ try{sessionStorage.removeItem(k);}catch{} try{localStorage.removeItem(k);}catch{} },
     };
     const ss = {
       set:(k,v)=>sessionStorage.setItem(k,JSON.stringify(v)),
-      get:(k)=>{try{return JSON.parse(sessionStorage.getItem(k));}catch{return null;}},
-      del:(...ks)=>ks.forEach(k=>sessionStorage.removeItem(k))
+      get:(k)=>{ try{return JSON.parse(sessionStorage.getItem(k));}catch{return null;} },
+      del:(...ks)=>ks.forEach(k=>sessionStorage.removeItem(k)),
     };
 
-    // ===== 3) Auth Flow ========================================================
+    // ===== Auth Flow =====
     function authorizeRedirect() {
       createPKCE().then(({verifier, challenge}) => {
         const state = randomString(32);
@@ -121,13 +120,17 @@
       const verifier = tempStore.get(K.PKCE_VERIFIER);
       const expectedState = tempStore.get(K.OAUTH_STATE);
       const gotState = new URL(location.href).searchParams.get("state");
-      if (!verifier || !expectedState || gotState !== expectedState) throw new Error("STATE_INVALID");
+
+      // Compat mode: اسمح لو مفيش state (زي login/continue). لو موجود ومختلف → خطأ.
+      if (expectedState && gotState && gotState !== expectedState) throw new Error("STATE_MISMATCH");
 
       const body = new URLSearchParams({
         grant_type: "authorization_code",
         client_id: CONFIG.CLIENT_ID,
-        code, redirect_uri: CONFIG.REDIRECT_URI, code_verifier: verifier
+        code,
+        redirect_uri: CONFIG.REDIRECT_URI
       });
+      if (verifier) body.set("code_verifier", verifier); // يستخدم PKCE لو متاح
 
       const resp = await fetch(CONFIG.COGNITO_DOMAIN + "/oauth2/token", {
         method: "POST", headers: {"Content-Type":"application/x-www-form-urlencoded"}, body
@@ -160,7 +163,7 @@
       return user;
     }
 
-    // ===== 4) UI ===============================================================
+    // ===== UI =====
     const render = (user) => {
       const signedIn = !!user;
       $("#signed-out").style.display = signedIn ? "none" : "";
@@ -189,15 +192,14 @@
     };
 
     async function init() {
-      $("#btnSignIn").onclick   = authorizeRedirect;
-      $("#btnCopy").onclick     = async () => {
+      $("#btnSignIn").onclick = authorizeRedirect;
+      $("#btnCopy").onclick   = async () => {
         const data = { user: ss.get(K.USER), tokens: ss.get(K.TOKENS) };
         await navigator.clipboard.writeText(JSON.stringify(data,null,2));
         message("تم نسخ بيانات الجلسة.", true);
       };
       $("#btnClearLocal").onclick = () => { ss.del(K.USER,K.TOKENS); render(null); message("تم مسح sessionStorage.", true); };
       $("#btnSignOut").onclick  = () => {
-        const t = ss.get(K.TOKENS);
         ss.del(K.USER,K.TOKENS); render(null); message("تم مسح الجلسة محليًا.", true);
         try {
           const url = new URL(CONFIG.COGNITO_DOMAIN + "/logout");
@@ -216,9 +218,8 @@
           history.replaceState(null,"",url.toString());
           render(user); message("تم تسجيل الدخول بنجاح."); return;
         } catch(e) {
-          console.error(e); message(e.message==="STATE_INVALID"?
-            "STATE_INVALID: المتغيرات المؤقتة مفقودة. اضغط تسجيل الدخول من الصفحة نفسها مرة أخرى.":
-            "فشل إتمام تسجيل الدخول. راجع الدومين/الأذونات.", false);
+          console.error(e);
+          message(e.message, false);
         }
       }
       render(ss.get(K.USER));
