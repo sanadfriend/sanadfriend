@@ -23,9 +23,23 @@
     .footer{opacity:.7;font-size:.9rem;margin-top:14px}
     code{background:#0b1329;border:1px solid #20325f;border-radius:8px;padding:2px 6px}
     .ltr{direction:ltr; unicode-bidi:plaintext;}
+
+    /* Spinner Overlay */
+    #spinner{position:fixed;inset:0;background:#0b1224cc;display:none;align-items:center;justify-content:center;z-index:9999}
+    .spin-box{display:flex;gap:14px;align-items:center;background:#0e1a36;border:1px solid #20325f;border-radius:16px;padding:14px 18px;box-shadow:0 12px 36px #0008}
+    .wheel{width:26px;height:26px;border:3px solid #3b569b;border-top-color:#4cc9f0;border-radius:50%;animation:sp 0.85s linear infinite}
+    @keyframes sp{to{transform:rotate(360deg)}}
   </style>
 </head>
 <body>
+  <!-- Spinner -->
+  <div id="spinner" aria-hidden="true">
+    <div class="spin-box">
+      <div class="wheel"></div>
+      <div id="spin-text">جارٍ المعالجة…</div>
+    </div>
+  </div>
+
   <div class="wrap">
     <div class="card">
       <h1>sanad friend — تسجيل الدخول</h1>
@@ -51,21 +65,23 @@
   </div>
 
   <script>
-    // ========= إعداداتك =========
+    // ===== إعدادات =====
     const CONFIG = Object.freeze({
-      PROGRAM_NAME: "sanad friend",
       CLIENT_ID: "1ckgnpptbiq3aopekr9kt54aoh",
       COGNITO_DOMAIN: "https://us-east-1fth1loy0b.auth.us-east-1.amazoncognito.com",
       REDIRECT_URI: "https://sanadfriend.github.io/sanadfriend/",
-      SCOPES: ["openid","email","phone","profile"], // ضروري لـ name/birthdate
+      SCOPES: ["openid","email","phone","profile"], // لازم ل name/birth
     });
 
-    // ========= مفاتيح مؤقتة لرحلة PKCE/state (لا تُخزن بيانات المستخدم الأخرى) =========
+    // ===== مفاتيح مؤقتة للـ PKCE/State =====
     const TMP = Object.freeze({ PKCE_VERIFIER:"SF_PKCE_VERIFIER", OAUTH_STATE:"SF_OAUTH_STATE" });
 
-    // ========= Helpers =========
+    // ===== Helpers =====
     const $ = s => document.querySelector(s);
     const msg = (t, ok=true)=>{ const el=$("#msg"); el.textContent=t||""; el.style.color=ok?"#9fe6b8":"#ffb4b4"; };
+    const showSpin = (t="جارٍ المعالجة…")=>{ $("#spin-text").textContent=t; $("#spinner").style.display="flex"; };
+    const hideSpin = ()=>{ $("#spinner").style.display="none"; };
+
     const b64url = (buf)=>{ let str=typeof buf==="string"?buf:String.fromCharCode(...new Uint8Array(buf));
       return btoa(str).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); };
     const b64urlToUint8 = (s)=>{ s=s.replace(/-/g,"+").replace(/_/g,"/"); const pad=s.length%4?4-(s.length%4):0;
@@ -84,19 +100,19 @@
       del:(k)=>{ try{sessionStorage.removeItem(k);}catch{} try{localStorage.removeItem(k);}catch{} },
     };
 
-    // ========= حفظ القيم الخمسة فقط =========
+    // ===== حفظ القيم الخمسة فقط =====
     function persistUserFields({userId, name, birth, phone, email}) {
       sessionStorage.setItem("userId", userId || "");
       sessionStorage.setItem("name", name || "");
       sessionStorage.setItem("birth", birth || "");
-      sessionStorage.setItem("phone number", phone || ""); // الاسم كما طُلب
+      sessionStorage.setItem("phone number", phone || "");
       sessionStorage.setItem("email", email || "");
     }
     function clearUserFields() {
       ["userId","name","birth","phone number","email"].forEach(k=>sessionStorage.removeItem(k));
     }
 
-    // ========= UI =========
+    // ===== UI =====
     function renderFromSession() {
       const data = {
         userId: sessionStorage.getItem("userId"),
@@ -111,7 +127,6 @@
       if (!signedIn) return;
 
       const rows = [
-        ["program", CONFIG.PROGRAM_NAME],
         ["userId", data.userId],
         ["name", data.name],
         ["birth", data.birth],
@@ -128,8 +143,9 @@
       }
     }
 
-    // ========= Auth Flow =========
+    // ===== Auth Flow =====
     function startLogin() {
+      showSpin("جارٍ التحويل إلى صفحة الدخول…");
       createPKCE().then(({verifier, challenge})=>{
         const state = randStr(32);
         tempStore.set(TMP.PKCE_VERIFIER, verifier);
@@ -144,10 +160,11 @@
         url.searchParams.set("code_challenge", challenge);
         url.searchParams.set("state", state);
         location.assign(url.toString());
-      }).catch(()=>msg("تعذر بدء تسجيل الدخول (PKCE).", false));
+      }).catch(()=>{ hideSpin(); msg("تعذر بدء تسجيل الدخول (PKCE).", false); });
     }
 
     async function handleCallback(code) {
+      showSpin("جارٍ التحقق وإحضار البيانات…");
       const verifier = tempStore.get(TMP.PKCE_VERIFIER);
       const expectedState = tempStore.get(TMP.OAUTH_STATE);
       const gotState = new URL(location.href).searchParams.get("state");
@@ -173,7 +190,7 @@
         const u = await fetch(CONFIG.COGNITO_DOMAIN + "/oauth2/userInfo", {
           headers: { Authorization: "Bearer " + tokens.access_token }
         });
-        if (u.ok) info = await u.json();
+        if (u.ok) info = await u.json(); // يرجّع name/birthdate لو Scope profile مفعّل
       } catch {}
 
       const full = Object.assign({}, idClaims, info);
@@ -185,19 +202,20 @@
         email: full.email || "",
       };
       persistUserFields(user);
+      hideSpin();
     }
 
-    // ========= Init =========
+    // ===== Init =====
     async function init() {
-      $("#btnSignIn").onclick = startLogin;
+      $("#btnSignIn").onclick   = startLogin;
       $("#btnClearLocal").onclick = ()=>{ clearUserFields(); renderFromSession(); msg("تم مسح SessionStorage.", true); };
-      $("#btnCopy").onclick = async ()=>{
+      $("#btnCopy").onclick     = async ()=>{
         const keys = ["userId","name","birth","phone number","email"];
         const out = Object.fromEntries(keys.map(k=>[k, sessionStorage.getItem(k) || ""]));
         await navigator.clipboard.writeText(JSON.stringify(out,null,2));
         msg("تم نسخ القيم الخمسة.", true);
       };
-      $("#btnSignOut").onclick = ()=>{
+      $("#btnSignOut").onclick  = ()=>{
         clearUserFields(); renderFromSession(); msg("تم مسح الجلسة محليًا.", true);
         try {
           const url = new URL(CONFIG.COGNITO_DOMAIN + "/logout");
@@ -216,7 +234,7 @@
           history.replaceState(null,"",url.toString());
           msg("تم تسجيل الدخول وحفظ القيم الخمسة.");
         } catch(e) {
-          console.error(e); msg(e.message || "خطأ أثناء إتمام تسجيل الدخول.", false);
+          console.error(e); hideSpin(); msg(e.message || "خطأ أثناء إتمام تسجيل الدخول.", false);
         }
       }
       renderFromSession();
